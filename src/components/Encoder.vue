@@ -55,9 +55,14 @@ watch(fullUrl, async (newUrl) => {
 
 async function navigateToEncodedMessage() {
   if (encodedMessage.value) {
-    await router.push({
-      query: { message: encodedMessage.value }
-    });
+    try {
+      await router.push({
+        path: '/',
+        query: { message: encodedMessage.value }
+      });
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
   }
 }
 
