@@ -157,7 +157,7 @@ async function navigateToEncodedMessage() {
         <h3>Encrypted {{ key }}:</h3>
         <div class="copy-container">
           <input type="text" readonly :value="value" class="message-display" />
-          <button @click="copyToClipboard(value)" :title="'Copy encrypted ' + key">
+          <button @click="copyToClipboard(String(value))" :title="'Copy encrypted ' + key">
             Copy
           </button>
         </div>

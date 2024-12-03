@@ -5,17 +5,24 @@ import { decrypt } from '../utils/crypto';
 
 const route = useRoute();
 const router = useRouter();
-const encodedFields = ref({
+
+// Add type definitions for the fields
+type Fields = {
+  message: string;
+  next_url: string;
+};
+
+const encodedFields = ref<Fields>({
   message: '',
   next_url: ''
 });
 const help = ref('');
 const decodePhrase = ref('');
-const decodedFields = ref({
+const decodedFields = ref<Fields>({
   message: '',
   next_url: ''
 });
-const errors = ref({
+const errors = ref<Fields>({
   message: '',
   next_url: ''
 });
@@ -43,7 +50,7 @@ watch([decodePhrase, encodedFields], () => {
 
 function handleDecode() {
   if (decodePhrase.value) {
-    Object.entries(encodedFields.value).forEach(([key, value]) => {
+    (Object.entries(encodedFields.value) as [keyof Fields, string][]).forEach(([key, value]) => {
       if (value) {
         const result = decrypt(value, decodePhrase.value);
         if (!result.success) {
