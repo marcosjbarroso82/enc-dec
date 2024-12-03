@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import Decoder from './components/Decoder.vue'
-import Encoder from './components/Encoder.vue'
+import Navigation from './components/Navigation.vue';
 </script>
 
 <template>
-  <div class="container">
-    <h1>Message Encoder/Decoder</h1>
-    <Decoder />
-    <hr />
-    <Encoder />
-  </div>
+  <Navigation />
+  <router-view></router-view>
 </template>
 
 <style>

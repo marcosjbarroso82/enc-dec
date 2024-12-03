@@ -1,34 +1,63 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, LocationQueryRaw } from 'vue-router';
 import { encrypt } from '../utils/crypto';
 import { copyImageToClipboard } from '../utils/clipboard';
 import QRCode from 'qrcode';
 
 const router = useRouter();
 const message = ref('');
+const nextUrl = ref('');
 const encodePhrase = ref('');
 const error = ref('');
 const qrCodeDataUrl = ref('');
 const copyStatus = ref('');
 
-const encodedMessage = computed(() => {
-  if (message.value && encodePhrase.value) {
+const encodedFields = computed(() => {
+  if (!encodePhrase.value) return {};
+
+  const fields: LocationQueryRaw = {};
+  
+  if (message.value) {
     const result = encrypt(message.value, encodePhrase.value);
-    if (!result.success) {
-      error.value = result.error || 'Encryption failed';
-      return '';
+    if (result.success && result.data) {
+      fields.message = result.data;
     }
-    error.value = '';
-    return result.data;
   }
-  return '';
+  
+  if (nextUrl.value) {
+    const result = encrypt(nextUrl.value, encodePhrase.value);
+    if (result.success && result.data) {
+      fields.next_url = result.data;
+    }
+  }
+  
+  return fields;
+});
+
+const internalPath = computed(() => {
+  const hasEncodedFields = Object.keys(encodedFields.value).length > 0;
+  if (hasEncodedFields) {
+    const searchParams = new URLSearchParams();
+    Object.entries(encodedFields.value).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        searchParams.set(key, value);
+      }
+    });
+    return `/?${searchParams.toString()}`;
+  }
+  return '/';
 });
 
 const fullUrl = computed(() => {
-  if (encodedMessage.value) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('message', encodedMessage.value);
+  const hasEncodedFields = Object.keys(encodedFields.value).length > 0;
+  if (hasEncodedFields) {
+    const url = new URL(window.location.origin);
+    Object.entries(encodedFields.value).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        url.searchParams.set(key, value);
+      }
+    });
     return url.toString();
   }
   return '';
@@ -47,24 +76,12 @@ watch(fullUrl, async (newUrl) => {
       });
     } catch (err) {
       console.error('QR Code generation failed:', err);
+      error.value = 'Failed to generate QR code';
     }
   } else {
     qrCodeDataUrl.value = '';
   }
 });
-
-async function navigateToEncodedMessage() {
-  if (encodedMessage.value) {
-    try {
-      await router.push({
-        path: '/',
-        query: { message: encodedMessage.value }
-      });
-    } catch (error) {
-      console.error('Navigation error:', error);
-    }
-  }
-}
 
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text);
@@ -80,6 +97,28 @@ async function copyQRCode() {
     }, 2000);
   }
 }
+
+async function navigateToEncodedMessage() {
+  error.value = ''; // Clear previous errors
+  
+  if (Object.keys(encodedFields.value).length === 0) {
+    error.value = 'No fields to encode';
+    return;
+  }
+
+  try {
+    // Use Vue Router for navigation
+    await router.push({
+      path: '/',
+      query: encodedFields.value
+    });
+    
+    console.log('Navigation successful');
+  } catch (err) {
+    console.error('Navigation failed:', err);
+    error.value = 'Failed to update URL';
+  }
+}
 </script>
 
 <template>
@@ -93,6 +132,14 @@ async function copyQRCode() {
       ></textarea>
     </div>
     <div class="input-group">
+      <label>Internal Next Path:</label>
+      <input
+        v-model="nextUrl"
+        type="text"
+        placeholder="Enter internal path (e.g., /page1)"
+      />
+    </div>
+    <div class="input-group">
       <label>Passphrase:</label>
       <input
         v-model="encodePhrase"
@@ -103,15 +150,25 @@ async function copyQRCode() {
     <div v-if="error" class="error">
       {{ error }}
     </div>
-    <div v-if="encodedMessage" class="result">
-      <button @click="navigateToEncodedMessage">Update URL with Encoded Message</button>
+    <div v-if="Object.keys(encodedFields).length > 0" class="result">
+      <button @click="navigateToEncodedMessage">Update URL with Encoded Fields</button>
       
-      <div class="encoded-section">
-        <h3>Encrypted Message:</h3>
+      <div v-for="(value, key) in encodedFields" :key="key" class="encoded-section">
+        <h3>Encrypted {{ key }}:</h3>
         <div class="copy-container">
-          <input type="text" readonly :value="encodedMessage" class="message-display" />
-          <button @click="copyToClipboard(encodedMessage)" title="Copy encrypted message">
-            Copy Message
+          <input type="text" readonly :value="value" class="message-display" />
+          <button @click="copyToClipboard(value)" :title="'Copy encrypted ' + key">
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="encoded-section">
+        <h3>Internal Path:</h3>
+        <div class="copy-container">
+          <input type="text" readonly :value="internalPath" class="url-display" />
+          <button @click="copyToClipboard(internalPath)" title="Copy internal path">
+            Copy Path
           </button>
         </div>
       </div>
